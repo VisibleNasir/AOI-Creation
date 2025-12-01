@@ -1,0 +1,42 @@
+# Automated dependency updates check
+name: Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 0 * * 1' # Every Monday at midnight
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  check-updates:
+    name: Check for Updates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Check for outdated packages
+        run: |
+          npm outdated || true
+          
+      - name: Create issue if updates available
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            const { execSync } = require('child_process');
+            const outdated = execSync('npm outdated --json || true').toString();
+            
+            if (outdated && outdated.length > 2) {
+              github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'Dependency Updates Available',
+                body: `Outdated packages detected:\n\`\`\`json\n${outdated}\n\`\`\``,
+                labels: ['dependencies']
+              });
+            }
